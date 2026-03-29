@@ -1,0 +1,16 @@
+services:
+  ocr-service:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      # Override any of these to customise behaviour
+      SERVER_PORT: "3001"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      OLLAMA_OCR_MODEL: "qwen2.5vl:7b"
+      OLLAMA_INSIGHTS_MODEL: "llama3.2"
+      TESSERACT_LANGUAGE: "eng"
+    # Lets the container reach Ollama running on your host machine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

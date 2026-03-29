@@ -1,0 +1,54 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── uv / pip ──────────────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+# Keep uv.lock committed for reproducible installs
+# uv.lock
+
+# ── ML model caches ───────────────────────────────────────────────────────────
+.cache/
+.EasyOCR/
+.hf/
+.doctr/
+.paddleocr/
+*.paddleocr/
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+*.dockerignore
+
+# ── Logs & temp ───────────────────────────────────────────────────────────────
+*.log
+tmp/
+temp/
