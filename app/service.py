@@ -38,12 +38,12 @@ class OcrService:
     # ── Public API ─────────────────────────────────────────────────────────────
 
     async def process(
-        self,
-        file_bytes: bytes,
-        mime_type: str,
-        engine: str,
-        model: Optional[str],
-        with_insights: bool,
+            self,
+            file_bytes: bytes,
+            mime_type: str,
+            engine: str,
+            model: Optional[str],
+            with_insights: bool,
     ) -> OcrResponse:
         start = time.monotonic()
         ocr_engine = self._resolve_engine(engine, model)
@@ -84,7 +84,8 @@ class OcrService:
 
     # ── Internals ──────────────────────────────────────────────────────────────
 
-    def _resolve_engine(self, engine: str, model: Optional[str]) -> OcrEngine:
+    @staticmethod
+    def _resolve_engine(engine: str, model: Optional[str]) -> OcrEngine:
         match engine.lower():
             case "tesseract":
                 return TesseractEngine()
@@ -102,8 +103,9 @@ class OcrService:
                 log.warning("Unknown engine '%s' — falling back to tesseract.", engine)
                 return TesseractEngine()
 
+    @staticmethod
     def _process_pdf(
-        self, pdf_bytes: bytes, engine: OcrEngine
+            pdf_bytes: bytes, engine: OcrEngine
     ) -> tuple[str, int]:
         """Render each PDF page at 300 DPI and OCR it."""
         doc = pdfium.PdfDocument(pdf_bytes)

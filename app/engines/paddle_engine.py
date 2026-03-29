@@ -36,7 +36,7 @@ class PaddleEngine(OcrEngine):
                 try:
                     from paddleocr import PaddleOCR
                     # Use minimal args that work on both 2.x and 3.x
-                    PaddleEngine._ocr = PaddleOCR(lang="en", show_log=False)
+                    PaddleEngine._ocr = PaddleOCR(lang="en")
                     log.info("PaddleOCR ready.")
                 except Exception as e:
                     log.error("PaddleOCR init failed (will not retry): %s", e)

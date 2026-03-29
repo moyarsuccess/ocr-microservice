@@ -1,8 +1,8 @@
+import io
 import logging
 import threading
 from typing import ClassVar
 
-import numpy as np
 from PIL import Image
 
 from app.engines.base import OcrEngine
@@ -41,8 +41,9 @@ class DoctrEngine(OcrEngine):
 
         try:
             from doctr.io import DocumentFile
-            img_array = np.array(image)
-            doc = DocumentFile.from_images([img_array])
+            buf = io.BytesIO()
+            image.save(buf, format="PNG")
+            doc = DocumentFile.from_images([buf.getvalue()])
             result = model(doc)
 
             lines = [

@@ -40,19 +40,19 @@ def health():
 
 @app.post("/ocr", response_model=OcrResponse, tags=["ocr"])
 async def ocr(
-    request: Request,
-    engine: str = Query(
-        default="tesseract",
-        description="OCR engine: tesseract | ollama | surya | easyocr | paddle | doctr",
-    ),
-    model: Optional[str] = Query(
-        default=None,
-        description="Model name override (Ollama only, e.g. qwen2.5vl:7b)",
-    ),
-    insights: bool = Query(
-        default=False,
-        description="Run Ollama-powered document insight analysis on the extracted text",
-    ),
+        request: Request,
+        engine: str = Query(
+            default="tesseract",
+            description="OCR engine: tesseract | ollama | surya | easyocr | paddle | doctr",
+        ),
+        model: Optional[str] = Query(
+            default=None,
+            description="Model name override (Ollama only, e.g. qwen2.5vl:7b)",
+        ),
+        insights: bool = Query(
+            default=False,
+            description="Run Ollama-powered document insight analysis on the extracted text",
+        ),
 ):
     """
     Extract text from an image or PDF.
