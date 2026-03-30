@@ -1,54 +1,50 @@
-# ── Python ────────────────────────────────────────────────────────────────────
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-*.egg
-*.egg-info/
-dist/
+HELP.md
+.gradle
 build/
-.eggs/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
 
-# ── uv / pip ──────────────────────────────────────────────────────────────────
-.venv/
-venv/
-env/
-# Keep uv.lock committed for reproducible installs
-# uv.lock
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
 
-# ── ML model caches ───────────────────────────────────────────────────────────
-.cache/
-.EasyOCR/
-.hf/
-.doctr/
-.paddleocr/
-*.paddleocr/
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
 
-# ── Environment & secrets ─────────────────────────────────────────────────────
-.env
-.env.*
-!.env.example
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
 
-# ── IDE / editor ──────────────────────────────────────────────────────────────
-.idea/
+### VS Code ###
 .vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
 
-# ── Testing & coverage ────────────────────────────────────────────────────────
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
+### Kotlin ###
+# Compiled class files
+*.class
 
-# ── Docker ────────────────────────────────────────────────────────────────────
-*.dockerignore
-
-# ── Logs & temp ───────────────────────────────────────────────────────────────
+# Log Files
 *.log
-tmp/
-temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

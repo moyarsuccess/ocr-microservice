@@ -1,67 +1,39 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# OCR Service — single-stage Python 3.11 image
-# All six OCR engines included, no GPU required.
-# ──────────────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim
+# 1. Build environment using Gradle
+FROM gradle:8.6.0-jdk21 as builder
 
-ARG DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
+# We first copy everything, then build
+COPY . /app
 
-# ── System dependencies ────────────────────────────────────────────────────────
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        # Tesseract OCR + English language data
-        tesseract-ocr \
-        tesseract-ocr-eng \
-        # OpenCV / image libraries (EasyOCR, DocTR, PaddleOCR)
-        libgl1 \
-        libglib2.0-0 \
-        libsm6 \
-        libxrender1 \
-        libxext6 \
-        libgomp1 \
-        # Build tools (some packages compile native extensions)
-        build-essential \
-        # Health check
-        curl \
-    && rm -rf /var/lib/apt/lists/*
+# Run gradle build (this will compile the Kotlin code to a fat jar)
+RUN gradle build --no-daemon -x test
 
-# ── uv (fast Python package manager) ─────────────────────────────────────────
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-# Install into the system Python, no virtualenv needed inside Docker
-ENV UV_SYSTEM_PYTHON=1 \
-    UV_NO_CACHE=1
+# 2. Production runtime image
+FROM eclipse-temurin:21-jre-alpine
 
-WORKDIR /service
+# Install tesseract OCR and its language packs
+RUN apk update && \
+    apk add --no-cache \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    tesseract-ocr-data-fra \
+    tesseract-ocr-data-spa \
+    tesseract-ocr-data-deu \
+    fontconfig \
+    ttf-dejavu && \
+    rm -rf /var/cache/apk/*
 
-# ── Python dependencies ────────────────────────────────────────────────────────
-# Copy pyproject.toml first so this layer is cached until deps change.
-COPY pyproject.toml .
-COPY app/ app/
+WORKDIR /app
 
-# uv reads [tool.uv.sources] in pyproject.toml and automatically uses the
-# CPU-only PyTorch index on Linux — no extra flags needed here.
-RUN uv pip install .
+# The default path to tessdata in Alpine's tesseract-ocr package
+ENV TESSERACT_DATA_PATH=/usr/share/tessdata 
+ENV SERVER_PORT=3001
 
-# ── Runtime environment variables ─────────────────────────────────────────────
-ENV SERVER_PORT=3001 \
-    # Tesseract: explicit path needed inside the container
-    TESSERACT_DATA_PATH=/usr/share/tesseract-ocr/4.00/tessdata \
-    TESSERACT_LANGUAGE=eng \
-    TESSERACT_PAGE_SEG_MODE=3 \
-    # Ollama: host.docker.internal routes to the host machine's Ollama instance
-    OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-    OLLAMA_OCR_MODEL=qwen2.5vl:7b \
-    OLLAMA_INSIGHTS_MODEL=llama3.2 \
-    # Keep ML model caches inside the container (no host-mount leakage)
-    HF_HOME=/service/.cache/huggingface \
-    EASYOCR_MODULE_PATH=/service/.cache/easyocr \
-    DOCTR_CACHE_DIR=/service/.cache/doctr \
-    HOME=/service
+COPY --from=builder /app/build/libs/*.jar app.jar
 
-EXPOSE ${SERVER_PORT}
+EXPOSE 3001
 
-# ── Health check ───────────────────────────────────────────────────────────────
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -sf http://localhost:${SERVER_PORT}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:3001/health || exit 1
 
-# ── Start ──────────────────────────────────────────────────────────────────────
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${SERVER_PORT} --workers 1"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
