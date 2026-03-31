@@ -1,5 +1,5 @@
 # 1. Build environment using Gradle
-FROM gradle:8.6.0-jdk21 as builder
+FROM gradle:8.6.0-jdk21 AS builder
 
 WORKDIR /app
 # We first copy everything, then build

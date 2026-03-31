@@ -38,16 +38,16 @@ class TesseractService(
                 throw IllegalArgumentException("Could not read image from stream. Unsupported format.")
             }
             
-            logger.info("Starting OCR processing on image (dimensions: \${bufferedImage.width}x\${bufferedImage.height})")
+            logger.info("Starting OCR processing on image (dimensions: ${bufferedImage.width}x${bufferedImage.height})")
             val tesseract = createTesseract()
             val result = tesseract.doOCR(bufferedImage)
             
             val duration = System.currentTimeMillis() - start
-            logger.info("OCR completed successfully in \${duration}ms, extracted \${result.length} characters.")
+            logger.info("OCR completed successfully in ${duration}ms, extracted ${result.length} characters.")
             
             result.trim()
         } catch (e: Exception) {
-            logger.error("OCR extraction failed after \${System.currentTimeMillis() - start}ms: \${e.message}", e)
+            logger.error("OCR extraction failed after ${System.currentTimeMillis() - start}ms: ${e.message}", e)
             throw RuntimeException("OCR processing failed", e)
         }
     }
@@ -61,10 +61,10 @@ class TesseractService(
             val textBuilder = StringBuilder()
             
             val pageCount = document.numberOfPages
-            logger.info("Starting OCR processing on PDF (\${pageCount} pages)")
+            logger.info("Starting OCR processing on PDF (${pageCount} pages)")
 
             for (page in 0 until pageCount) {
-                logger.info("Rendering PDF page \${page + 1}/\$pageCount")
+                logger.info("Rendering PDF page ${page + 1}/$pageCount")
                 val bufferedImage = renderer.renderImageWithDPI(page, 300f, ImageType.RGB)
                 
                 // Create a strictly new instance per page processing round to fully isolate JNA pointers
@@ -76,11 +76,11 @@ class TesseractService(
             
             val duration = System.currentTimeMillis() - start
             val result = textBuilder.toString().trim()
-            logger.info("PDF OCR completed successfully in \${duration}ms, extracted \${result.length} characters.")
+            logger.info("PDF OCR completed successfully in ${duration}ms, extracted ${result.length} characters.")
             
             result
         } catch (e: Exception) {
-            logger.error("PDF OCR extraction failed: \${e.message}", e)
+            logger.error("PDF OCR extraction failed: ${e.message}", e)
             throw RuntimeException("PDF processing failed", e)
         }
     }

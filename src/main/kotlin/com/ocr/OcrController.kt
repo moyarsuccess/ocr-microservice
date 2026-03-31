@@ -11,12 +11,13 @@ import org.springframework.web.multipart.MultipartFile
 class OcrController(private val tesseractService: TesseractService) {
 
     private val logger = LoggerFactory.getLogger(OcrController::class.java)
+    private val imageExtensions = setOf("jpeg", "jpg", "png", "gif", "bmp", "webp", "tif", "tiff")
 
     @PostMapping
     fun processOcr(@RequestParam("file") file: MultipartFile): ResponseEntity<OcrResponse> {
         val start = System.currentTimeMillis()
-        logger.info("Received OCR request for file: \${file.originalFilename} (\${file.size} bytes)")
-        
+        logger.info("Received OCR request for file: ${file.originalFilename} (${file.size} bytes)")
+
         if (file.isEmpty) {
             return ResponseEntity.badRequest().body(
                 OcrResponse(success = false, text = null, processingTimeMs = 0, error = "File cannot be empty")
@@ -24,19 +25,24 @@ class OcrController(private val tesseractService: TesseractService) {
         }
 
         return try {
-            val contentType = file.contentType?.lowercase() ?: ""
             val filename = file.originalFilename?.lowercase() ?: ""
-            
-            val extractedText = if (contentType == "application/pdf" || filename.endsWith(".pdf")) {
-                file.inputStream.use { stream ->
-                    tesseractService.extractTextFromPdf(stream)
+
+            val extractedText = when {
+                filename.endsWith(".pdf") -> {
+                    file.inputStream.use { stream ->
+                        tesseractService.extractTextFromPdf(stream)
+                    }
                 }
-            } else {
-                file.inputStream.use { stream ->
-                    tesseractService.extractTextFromImage(stream)
+
+                imageExtensions.contains(filename.takeLast(3)) -> {
+                    file.inputStream.use { stream ->
+                        tesseractService.extractTextFromImage(stream)
+                    }
                 }
+
+                else -> ""
             }
-            
+
             val processingTime = System.currentTimeMillis() - start
             ResponseEntity.ok(
                 OcrResponse(
