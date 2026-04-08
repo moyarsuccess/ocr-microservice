@@ -33,6 +33,12 @@ dependencies {
     // Logging (Spring Boot brings SLF4J and Logback by default)
     implementation("ch.qos.logback:logback-classic")
     
+    // LangChain4j - Ollama integration
+    implementation("dev.langchain4j:langchain4j-ollama:0.36.2")
+
+    // OpenAPI / Swagger UI
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 

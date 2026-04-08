@@ -26,7 +26,7 @@ RUN apk update && \
 WORKDIR /app
 
 # The default path to tessdata in Alpine's tesseract-ocr package
-ENV TESSERACT_DATA_PATH=/usr/share/tessdata 
+ENV TESSERACT_DATA_PATH=/usr/share/tessdata
 ENV SERVER_PORT=3001
 
 COPY --from=builder /app/build/libs/*.jar app.jar
@@ -36,4 +36,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:3001/health || exit 1
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Djava.net.preferIPv4Stack=true", "-jar", "app.jar"]
