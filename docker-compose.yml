@@ -1,0 +1,42 @@
+# Simple Docker Compose for the hybrid OCR microservice.
+#
+# Ollama is assumed to be running outside this stack (default:
+# https://ollama.flutra.ca). To point at a local Ollama instead, set
+#   OLLAMA_BASE_URL=http://host.docker.internal:11434
+# in a .env file next to this compose file, or export it inline.
+#
+#   docker compose up --build
+#   docker compose logs -f ocr
+#   docker compose down
+
+services:
+  ocr:
+    build: .
+    image: ocr-microservice:2.0.0
+    container_name: ocr-microservice
+    ports:
+      - "${SERVER_PORT:-3001}:3001"
+    environment:
+      SERVER_PORT: 3001
+      TESSERACT_LANGUAGE: ${TESSERACT_LANGUAGE:-eng+fra}
+      TESSERACT_PDF_DPI: ${TESSERACT_PDF_DPI:-300}
+      OCR_MAX_PAGES: ${OCR_MAX_PAGES:-30}
+      # ⚠️ Default Ollama endpoint is on the public internet. Override for local dev.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-https://ollama.flutra.ca}
+      OLLAMA_CLASSIFIER_MODEL: ${OLLAMA_CLASSIFIER_MODEL:-llama3.2:3b}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-qwen2.5vl:7b}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-180}
+      OLLAMA_ALLOWED_MODELS: ${OLLAMA_ALLOWED_MODELS:-llama3.2:3b,qwen2.5vl:7b,qwen2.5vl:3b}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-200MB}
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0"
+    restart: unless-stopped
+    # host.docker.internal is needed on Linux for the container to reach an
+    # Ollama running on the host. Mac/Windows Docker Desktop adds this automatically.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3

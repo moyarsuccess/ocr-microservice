@@ -12,8 +12,12 @@ class OpenApiConfig {
     fun openApi(): OpenAPI = OpenAPI()
         .info(
             Info()
-                .title("OCR Microservice")
-                .description("Extracts text from images and PDF files using Tesseract OCR.")
-                .version("1.0.4")
+                .title("Hybrid OCR Microservice")
+                .description(
+                    "Hybrid 5-stage OCR pipeline for IRCC documents (passport, bank statement, " +
+                        "employment letter, LOA, PAL, LMIA, GIC, ...). Returns strongly-typed JSON " +
+                        "with per-field confidence scores. See /docs/OCR_DESIGN.md."
+                )
+                .version("2.0.0")
         )
 }

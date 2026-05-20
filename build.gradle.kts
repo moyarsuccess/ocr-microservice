@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.ocr"
-version = "1.0.0"
+version = "2.0.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -17,28 +17,27 @@ repositories {
 }
 
 dependencies {
+    // --- Spring Boot ---
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    
-    // Tess4J - JNA Wrapper for Tesseract OCR
+
+    // --- OCR ---
+    // Tess4J — JNA wrapper around the native Tesseract library.
     implementation("net.sourceforge.tess4j:tess4j:5.10.0")
-    
-    // Apache PDFBox for PDF rendering
+
+    // --- PDF rendering ---
     implementation("org.apache.pdfbox:pdfbox:3.0.2")
-
-    // JAI Image I/O - required by PDFBox to decode JPEG2000 (JPX) images in PDFs
+    // JPEG-2000 (JPX) support — required for PDFs that embed JP2-encoded scans.
     implementation("com.github.jai-imageio:jai-imageio-jpeg2000:1.4.0")
-    
-    // Logging (Spring Boot brings SLF4J and Logback by default)
-    implementation("ch.qos.logback:logback-classic")
-    
-    // LangChain4j - Ollama integration
-    implementation("dev.langchain4j:langchain4j-ollama:0.36.2")
 
-    // OpenAPI / Swagger UI
+    // --- Logging (Logback comes via Spring Boot) ---
+    implementation("ch.qos.logback:logback-classic")
+
+    // --- OpenAPI / Swagger UI ---
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
 
+    // --- Test ---
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 

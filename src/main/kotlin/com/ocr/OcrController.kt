@@ -1,141 +1,99 @@
 package com.ocr
 
+import com.ocr.engine.HybridOcrEngine
+import com.ocr.model.DocumentType
+import com.ocr.model.ExtractionContext
+import com.ocr.model.OcrEnvelope
+import com.ocr.util.PipelineLogger
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
-import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
-import org.slf4j.LoggerFactory
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 
-@Tag(name = "OCR", description = "Extract text from images and PDF files using Tesseract or Ollama")
+/**
+ * REST surface for the hybrid OCR engine.
+ *
+ *   POST /ocr/extract     multipart, returns structured OcrEnvelope JSON
+ *   GET  /ocr/health      service liveness
+ *   GET  /health          alias for the Docker HEALTHCHECK
+ *
+ * There is no `provider` parameter any more — there is one engine, the hybrid pipeline.
+ */
+@Tag(name = "OCR", description = "Hybrid OCR engine for IRCC document extraction")
 @RestController
-@RequestMapping("/ocr")
-class OcrController(
-    private val tesseractService: TesseractService,
-    private val ollamaOcrService: OllamaOcrService
-) {
+class OcrController(private val engine: HybridOcrEngine) {
 
-    private val logger = LoggerFactory.getLogger(OcrController::class.java)
-    private val imageExtensions = setOf("jpeg", "jpg", "png", "gif", "bmp", "webp", "tif", "tiff")
+    private val log = PipelineLogger("http")
 
     @Operation(
-        summary = "Extract text from a file",
-        description = """Accepts an image (JPEG, PNG, GIF, BMP, WEBP, TIFF) or a PDF and returns the extracted text.
-Use the **provider** parameter to choose the OCR engine:
-- `tesseract` (default) — fast, offline, best for clean scans
-- `ollama` — AI-powered, better for complex layouts and handwriting (requires Ollama running)
+        summary = "Extract structured fields from an IRCC document",
+        description = """Accepts a PDF or image file (passport, bank statement, employment letter, LOA, PAL, LMIA, GIC, etc.)
+and runs it through the hybrid 5-stage OCR pipeline:
 
-When using `ollama`, the **model** parameter overrides the server-configured default (e.g. `llama3.2-vision`, `minicpm-v`)."""
+1. Tesseract OCR + (conditional) MRZ specialist
+2. Rule-based document classification with LLM fallback
+3. Per-type prompt + JSON schema lookup
+4. Vision LLM structured extraction
+5. Cross-validation and confidence scoring
+
+Returns a strongly-shaped JSON envelope with the extracted fields, per-field confidence, and warnings."""
     )
-    @ApiResponses(
-        ApiResponse(
-            responseCode = "200",
-            description = "Text extracted successfully",
-            content = [Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = Schema(implementation = OcrResponse::class)
-            )]
-        ),
-        ApiResponse(
-            responseCode = "400",
-            description = "Empty or missing file",
-            content = [Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = Schema(implementation = OcrResponse::class)
-            )]
-        ),
-        ApiResponse(
-            responseCode = "500",
-            description = "OCR processing failed",
-            content = [Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = Schema(implementation = OcrResponse::class)
-            )]
-        )
+    @ApiResponse(
+        responseCode = "200",
+        description = "Extraction complete (check `success` and `error`)",
+        content = [Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = Schema(implementation = OcrEnvelope::class))]
     )
-    @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    fun processOcr(
-        @Parameter(description = "Image or PDF file to process", required = true)
+    @PostMapping("/ocr/extract", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun extract(
+        @Parameter(description = "PDF or image file to process", required = true)
         @RequestParam("file") file: MultipartFile,
-        @Parameter(description = "OCR engine to use: `tesseract` (default) or `ollama`")
-        @RequestParam("provider", defaultValue = "tesseract") provider: String,
-        @Parameter(description = "Ollama model to use (only applies when provider=ollama). Overrides the server default.")
-        @RequestParam("model", required = false) model: String?
-    ): ResponseEntity<OcrResponse> {
-        val start = System.currentTimeMillis()
-        logger.info("Received OCR request for file: ${file.originalFilename} (${file.size} bytes), provider: $provider${if (model != null) ", model: $model" else ""}")
+        @Parameter(description = "Optional document type hint, e.g. `passport`, `bank_statement`. Skips classification when provided.")
+        @RequestParam("expectedType", required = false) expectedType: String?,
+        @Parameter(description = "Optional vision model override (must be in the server allowlist)")
+        @RequestParam("visionModel", required = false) visionModel: String?,
+        @Parameter(description = "If true, include the raw Tesseract text in the response (debugging — contains PII)")
+        @RequestParam("includeRawText", defaultValue = "false") includeRawText: Boolean,
+    ): ResponseEntity<OcrEnvelope> {
 
-        if (file.isEmpty) {
-            return ResponseEntity.badRequest().body(
-                OcrResponse(
-                    success = false,
-                    engine = provider,
-                    text = null,
-                    processingTimeMs = 0,
-                    error = "File cannot be empty"
-                )
-            )
-        }
+        // ⚠️ WARNING: do not log file.originalFilename verbatim if filenames may
+        // contain applicant names. We log only the size; the engine logs further
+        // pipeline detail without PII.
+        log.info(
+            "extract request",
+            "bytes" to file.size,
+            "content_type" to (file.contentType ?: "unknown"),
+            "expected" to (expectedType ?: "(detect)"),
+            "model_override" to (visionModel ?: "(default)"),
+        )
 
-        return try {
-            val filename = file.originalFilename?.lowercase() ?: ""
-
-            val extractedText = when (provider.lowercase()) {
-                "ollama" -> when {
-                    filename.endsWith(".pdf") -> file.inputStream.use { ollamaOcrService.extractTextFromPdf(it, model) }
-                    imageExtensions.any { filename.endsWith(".$it") } -> file.inputStream.use { ollamaOcrService.extractTextFromImage(it, model) }
-                    else -> ""
-                }
-                else -> when {
-                    filename.endsWith(".pdf") -> file.inputStream.use { tesseractService.extractTextFromPdf(it) }
-                    imageExtensions.any { filename.endsWith(".$it") } -> file.inputStream.use { tesseractService.extractTextFromImage(it) }
-                    else -> ""
-                }
-            }
-
-            val processingTime = System.currentTimeMillis() - start
-            ResponseEntity.ok(
-                OcrResponse(
-                    success = true,
-                    engine = provider.lowercase(),
-                    text = extractedText,
-                    processingTimeMs = processingTime,
-                    error = null
-                )
-            )
-        } catch (e: Exception) {
-            val processingTime = System.currentTimeMillis() - start
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                OcrResponse(
-                    success = false,
-                    engine = provider.lowercase(),
-                    text = null,
-                    processingTimeMs = processingTime,
-                    error = e.message
-                )
-            )
-        }
+        val ctx = ExtractionContext(
+            originalFilename = sanitiseFilename(file.originalFilename),
+            expectedType = expectedType?.let { DocumentType.fromCode(it) },
+            includeRawText = includeRawText,
+            visionModelOverride = visionModel,
+        )
+        val envelope = engine.extract(file.bytes, ctx)
+        return ResponseEntity.ok(envelope)
     }
 
-    @Operation(summary = "Health check", description = "Returns the service status.")
-    @ApiResponse(responseCode = "200", description = "Service is running")
-    @GetMapping("/health")
-    fun healthCheck(): Map<String, String> {
-        return mapOf("status" to "ok")
+    @Operation(summary = "Health check")
+    @GetMapping("/ocr/health", "/health")
+    fun health(): Map<String, String> = mapOf("status" to "ok")
+
+    /**
+     * Filenames can contain user PII (e.g. "JohnSmith_passport.pdf"). Strip path
+     * components and keep only the trailing token, then truncate. This is used
+     * for logs / debugging, not security.
+     */
+    private fun sanitiseFilename(name: String?): String? {
+        if (name.isNullOrBlank()) return null
+        val tail = name.substringAfterLast('/').substringAfterLast('\\')
+        return tail.take(64)
     }
 }
-
-data class OcrResponse(
-    val success: Boolean,
-    val engine: String,
-    val text: String?,
-    val processingTimeMs: Long,
-    val error: String?
-)
